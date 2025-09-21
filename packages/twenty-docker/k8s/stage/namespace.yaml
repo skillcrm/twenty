@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: twentycrm-stage
+  labels:
+    name: twentycrm-stage
+    environment: staging

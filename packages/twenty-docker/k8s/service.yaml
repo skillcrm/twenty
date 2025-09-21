@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: skillcrm-server
+  namespace: twentycrm
+  labels:
+    app: skillcrm
+    component: server
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 3000
+    protocol: TCP
+    name: http
+  selector:
+    app: skillcrm
+    component: server

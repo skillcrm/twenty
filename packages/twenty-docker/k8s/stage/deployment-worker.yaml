@@ -1,0 +1,119 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skillcrm-stage-worker
+  namespace: twentycrm-stage
+  labels:
+    app: skillcrm-stage
+    component: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: skillcrm-stage
+      component: worker
+  template:
+    metadata:
+      labels:
+        app: skillcrm-stage
+        component: worker
+    spec:
+      containers:
+      - name: worker
+        image: skillcrm-register.registry.twcstorage.ru/twenty:stage
+        command: ["yarn", "worker:prod"]
+        env:
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: skillcrm-stage-config
+              key: NODE_ENV
+        - name: PG_DATABASE_URL
+          value: "postgres://$(POSTGRESQL_USER):$(POSTGRESQL_PASSWORD)@$(POSTGRESQL_HOST):$(POSTGRESQL_PORT)/$(POSTGRESQL_DBNAME)"
+        - name: POSTGRESQL_HOST
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: POSTGRESQL_HOST
+        - name: POSTGRESQL_PORT
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: POSTGRESQL_PORT
+        - name: POSTGRESQL_USER
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: POSTGRESQL_USER
+        - name: POSTGRESQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: POSTGRESQL_PASSWORD
+        - name: POSTGRESQL_DBNAME
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: POSTGRESQL_DBNAME
+        - name: REDIS_URL
+          value: "redis://$(REDIS_USERNAME):$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)"
+        - name: REDIS_HOST
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: REDIS_PORT
+        - name: REDIS_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: REDIS_USERNAME
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: REDIS_PASSWORD
+        - name: SERVER_URL
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: SERVER_URL
+        - name: APP_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: APP_SECRET
+        - name: STORAGE_TYPE
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: STORAGE_TYPE
+        - name: DISABLE_DB_MIGRATIONS
+          value: "true"
+        - name: DISABLE_CRON_JOBS_REGISTRATION
+          value: "true"
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: skillcrm-stage-config
+              key: LOG_LEVEL
+        volumeMounts:
+        - name: storage
+          mountPath: /app/packages/twenty-server/.local-storage
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: storage
+        persistentVolumeClaim:
+          claimName: skillcrm-stage-storage
+      imagePullSecrets:
+      - name: skillcrm-registry-secret
