@@ -103,6 +103,15 @@ jobs:
           curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
           echo "$HOME/yandex-cloud/bin" >> $GITHUB_PATH
           export PATH="$HOME/yandex-cloud/bin:$PATH"
+          # Force yc to use ci-profile by default via wrapper
+          mkdir -p "$HOME/.local/bin"
+          cat > "$HOME/.local/bin/yc" <<'EOF'
+#!/usr/bin/env bash
+exec "$HOME/yandex-cloud/bin/yc" --profile ci-profile "$@"
+EOF
+          chmod +x "$HOME/.local/bin/yc"
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          export PATH="$HOME/.local/bin:$PATH"
           yc --version
 
       - name: Configure Yandex Cloud auth
