@@ -98,6 +98,30 @@ jobs:
         with:
           version: 'latest'
 
+      - name: Install Yandex Cloud CLI
+        run: |
+          curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
+          echo "$HOME/yandex-cloud/bin" >> $GITHUB_PATH
+          yc --version
+
+      - name: Configure Yandex Cloud auth
+        env:
+          YC_SA_KEY_JSON: ${{ secrets.YC_SA_KEY_JSON }}
+          YC_CLOUD_ID: ${{ secrets.YC_CLOUD_ID }}
+          YC_FOLDER_ID: ${{ secrets.YC_FOLDER_ID }}
+        run: |
+          if [ -z "$YC_SA_KEY_JSON" ] || [ -z "$YC_CLOUD_ID" ] || [ -z "$YC_FOLDER_ID" ]; then
+            echo "YC credentials are not provided via secrets (YC_SA_KEY_JSON/YC_CLOUD_ID/YC_FOLDER_ID)." >&2
+            echo "If your kubeconfig uses 'exec' with yc, these are required." >&2
+          else
+            echo "$YC_SA_KEY_JSON" > sa-key.json
+            yc config profile create ci-profile || true
+            yc config set service-account-key sa-key.json
+            yc config set cloud-id "$YC_CLOUD_ID"
+            yc config set folder-id "$YC_FOLDER_ID"
+            yc config list
+          fi
+
       - name: Create backup before deployment
         run: |
           cd packages/twenty-docker/k8s
@@ -106,9 +130,51 @@ jobs:
       - name: Configure kubectl
         run: |
           # Configure kubectl for your Kubernetes cluster
-          # This step should be customized based on your cluster setup
-          echo "KUBECONFIG=${{ secrets.KUBECONFIG }}" > kubeconfig
-          export KUBECONFIG=./kubeconfig
+          mkdir -p ~/.kube
+          # Prefer static kubeconfig if provided
+          if [ -n "${{ secrets.KUBE_SERVER }}" ] && [ -n "${{ secrets.KUBE_CA_DATA }}" ] && [ -n "${{ secrets.KUBE_BEARER_TOKEN }}" ]; then
+            cat > ~/.kube/config <<EOF
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    certificate-authority-data: ${KUBE_CA_DATA}
+    server: ${KUBE_SERVER}
+  name: yc-cluster
+contexts:
+- context:
+    cluster: yc-cluster
+    user: sa-user
+  name: yc-context
+current-context: yc-context
+users:
+- name: sa-user
+  user:
+    token: ${KUBE_BEARER_TOKEN}
+EOF
+            chmod 600 ~/.kube/config
+            kubectl cluster-info
+            exit 0
+          fi
+          tmpcfg="$(mktemp)"
+          printf "%s" "${{ secrets.KUBECONFIG }}" > "$tmpcfg"
+          if base64 -d "$tmpcfg" > "$tmpcfg.dec" 2>/dev/null; then
+            if head -n1 "$tmpcfg.dec" | grep -Eq '^(apiVersion:|\{)'; then
+              mv "$tmpcfg.dec" ~/.kube/config
+            else
+              rm -f "$tmpcfg.dec"
+            fi
+          fi
+          if [ ! -f ~/.kube/config ]; then
+            printf "%b" "$(cat "$tmpcfg")" > ~/.kube/config
+          fi
+          rm -f "$tmpcfg"
+          chmod 600 ~/.kube/config
+          if grep -q "exec:" -n ~/.kube/config; then
+            sed -i 's|/Users/.*/yandex-cloud/bin/yc|yc|g' ~/.kube/config || true
+            sed -i 's|/home/.*/yandex-cloud/bin/yc|yc|g' ~/.kube/config || true
+          fi
+          kubectl cluster-info
 
       - name: Deploy to Kubernetes Production
         run: |
