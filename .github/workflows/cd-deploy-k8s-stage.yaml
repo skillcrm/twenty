@@ -124,10 +124,12 @@ jobs:
           else
             echo "$YC_SA_KEY_JSON" > sa-key.json
             yc config profile create ci-profile || true
+            yc config profile activate ci-profile
             yc config set service-account-key sa-key.json
             yc config set cloud-id "$YC_CLOUD_ID"
             yc config set folder-id "$YC_FOLDER_ID"
             yc config list
+            echo "YC_PROFILE=ci-profile" >> $GITHUB_ENV
           fi
 
       - name: Configure kubectl
