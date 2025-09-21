@@ -142,12 +142,18 @@ jobs:
           cd packages/twenty-docker/k8s
           kubectl get deployment twentycrm-server -n twentycrm -o yaml > backup-deployment-$(date +%Y%m%d_%H%M%S).yaml || true
 
+      - name: Debug Kubernetes credentials (no secrets)
+        run: |
+          echo "KUBE_SERVER set (secret or var): $([[ -n \"${{ secrets.KUBE_SERVER }}\" || -n \"${{ vars.KUBE_SERVER }}\" ]] && echo yes || echo no)"
+          echo "KUBE_CA_DATA set (secret or var): $([[ -n \"${{ secrets.KUBE_CA_DATA }}\" || -n \"${{ vars.KUBE_CA_DATA }}\" ]] && echo yes || echo no)"
+          echo "KUBE_BEARER_TOKEN set (secret or var): $([[ -n \"${{ secrets.KUBE_BEARER_TOKEN }}\" || -n \"${{ vars.KUBE_BEARER_TOKEN }}\" ]] && echo yes || echo no)"
+
       - name: Configure kubectl (Static Configuration)
         id: configure-kubectl
         env:
-          KUBE_SERVER: ${{ secrets.KUBE_SERVER }}
-          KUBE_CA_DATA: ${{ secrets.KUBE_CA_DATA }}
-          KUBE_BEARER_TOKEN: ${{ secrets.KUBE_BEARER_TOKEN }}
+          KUBE_SERVER: ${{ secrets.KUBE_SERVER != '' && secrets.KUBE_SERVER || vars.KUBE_SERVER }}
+          KUBE_CA_DATA: ${{ secrets.KUBE_CA_DATA != '' && secrets.KUBE_CA_DATA || vars.KUBE_CA_DATA }}
+          KUBE_BEARER_TOKEN: ${{ secrets.KUBE_BEARER_TOKEN != '' && secrets.KUBE_BEARER_TOKEN || vars.KUBE_BEARER_TOKEN }}
         run: |
           set -e
           echo "🔧 Configuring kubectl for Yandex Managed Kubernetes (Static Configuration)..."
@@ -157,6 +163,7 @@ jobs:
             echo "❌ Не все необходимые секреты настроены!"
             echo "Требуются: KUBE_SERVER, KUBE_CA_DATA, KUBE_BEARER_TOKEN"
             echo "Запустите скрипт: ./packages/twenty-docker/k8s/get-github-secrets.sh"
+            echo "Debug lengths: server=${#KUBE_SERVER} ca=${#KUBE_CA_DATA} token=${#KUBE_BEARER_TOKEN}"
             exit 1
           fi
           
