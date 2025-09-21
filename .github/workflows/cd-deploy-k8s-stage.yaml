@@ -36,6 +36,32 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check Telegram Secrets
+        run: |
+          echo "🔍 Checking Telegram notification secrets..."
+          echo "TELEGRAM_BOT_TOKEN set: $([[ -n "${{ secrets.TELEGRAM_BOT_TOKEN }}" ]] && echo "YES" || echo "NO")"
+          echo "TELEGRAM_CHAT_ID set: $([[ -n "${{ secrets.TELEGRAM_CHAT_ID }}" ]] && echo "YES" || echo "NO")"
+          if [[ -z "${{ secrets.TELEGRAM_BOT_TOKEN }}" || -z "${{ secrets.TELEGRAM_CHAT_ID }}" ]]; then
+            echo "⚠️ WARNING: Telegram secrets are not configured!"
+            echo "Please set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in repository secrets"
+          else
+            echo "✅ Telegram secrets are configured"
+          fi
+
+      - name: Notify Telegram - Deployment Started
+        if: always()
+        uses: ./.github/actions/telegram-notify
+        with:
+          status_emoji: "🚀"
+          status_text: "Начало деплоя"
+          details: "Запуск деплоя в stage окружение"
+          step_name: "Deployment Start"
+          image_tag: "starting"
+          environment: ${{ env.ENVIRONMENT }}
+          domain: ${{ env.DOMAIN }}
+          bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

@@ -41,6 +41,16 @@ runs:
     - name: Send Telegram Message
       shell: bash
       run: |
+        # Отладочная информация
+        echo "🔍 Debug Telegram notification:"
+        echo "Bot token set: $([[ -n "${{ inputs.bot_token }}" ]] && echo "YES" || echo "NO")"
+        echo "Chat ID set: $([[ -n "${{ inputs.chat_id }}" ]] && echo "YES" || echo "NO")"
+        echo "Status emoji: ${{ inputs.status_emoji }}"
+        echo "Status text: ${{ inputs.status_text }}"
+        echo "Environment: ${{ inputs.environment }}"
+        echo "Domain: ${{ inputs.domain }}"
+        echo "Image tag: ${{ inputs.image_tag }}"
+        
         # Формируем сообщение
         MESSAGE="${{ inputs.status_emoji }} *${{ inputs.status_text }}!*"
         MESSAGE="${MESSAGE}\n\n🌍 *Окружение:* ${{ inputs.environment }}"
@@ -51,9 +61,26 @@ runs:
         MESSAGE="${MESSAGE}\n⏰ *Время:* $(date '+%d.%m.%Y %H:%M:%S')"
         MESSAGE="${MESSAGE}\n\n🔍 *Детали:* ${{ inputs.details }}"
         
+        echo "📤 Sending message to Telegram..."
+        
         # Отправляем сообщение в Telegram
-        curl -s -X POST "https://api.telegram.org/bot${{ inputs.bot_token }}/sendMessage" \
+        RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "https://api.telegram.org/bot${{ inputs.bot_token }}/sendMessage" \
           -d chat_id="${{ inputs.chat_id }}" \
           -d text="$MESSAGE" \
           -d parse_mode="Markdown" \
-          -d disable_web_page_preview=true
+          -d disable_web_page_preview=true)
+        
+        HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+        RESPONSE_BODY=$(echo "$RESPONSE" | head -n -1)
+        
+        echo "📡 Telegram API Response:"
+        echo "HTTP Code: $HTTP_CODE"
+        echo "Response Body: $RESPONSE_BODY"
+        
+        if [ "$HTTP_CODE" = "200" ]; then
+          echo "✅ Telegram message sent successfully!"
+        else
+          echo "❌ Failed to send Telegram message. HTTP Code: $HTTP_CODE"
+          echo "Response: $RESPONSE_BODY"
+          exit 1
+        fi
