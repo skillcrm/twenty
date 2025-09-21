@@ -42,11 +42,24 @@ jobs:
           env | grep -E "(DOCKER|REGISTRY)" | head -10
 
       - name: Login to Docker Registry
+        id: registry-login
         uses: docker/login-action@v3
         with:
           registry: ${{ env.DOCKER_REGISTRY }}
           username: ${{ secrets.DOCKER_REGISTRY_USER }}
           password: ${{ secrets.DOCKER_REGISTRY_TOKEN }}
+
+      - name: Notify Telegram - Registry Login Failed
+        if: failure() && steps.registry-login.outcome == 'failure'
+        uses: ./.github/actions/telegram-notify
+        with:
+          status_emoji: "❌"
+          status_text: "Ошибка входа в Docker Registry"
+          details: "Проверьте DOCKER_REGISTRY_USER и DOCKER_REGISTRY_TOKEN"
+          step_name: "Registry Login"
+          image_tag: "unknown"
+          environment: ${{ env.ENVIRONMENT }}
+          domain: ${{ env.DOMAIN }}
 
       - name: Extract metadata
         id: meta
@@ -59,6 +72,7 @@ jobs:
             type=raw,value=stage,enable={{is_default_branch}}
 
       - name: Build and push Docker image
+        id: build-push
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -71,12 +85,25 @@ jobs:
             REACT_APP_SERVER_BASE_URL=https://${{ env.DOMAIN }}
             APP_VERSION=${{ github.sha }}
 
+      - name: Notify Telegram - Docker Build Failed
+        if: failure() && steps.build-push.outcome == 'failure'
+        uses: ./.github/actions/telegram-notify
+        with:
+          status_emoji: "❌"
+          status_text: "Ошибка сборки Docker образа"
+          details: "Проверьте Dockerfile и зависимости"
+          step_name: "Docker Build"
+          image_tag: "unknown"
+          environment: ${{ env.ENVIRONMENT }}
+          domain: ${{ env.DOMAIN }}
+
       - name: Setup kubectl
         uses: azure/setup-kubectl@v3
         with:
           version: 'latest'
 
       - name: Configure kubectl
+        id: configure-kubectl
         run: |
           # Configure kubectl for your Kubernetes cluster
           # Create kubeconfig directory
@@ -91,7 +118,20 @@ jobs:
           # Verify connection
           kubectl cluster-info
 
+      - name: Notify Telegram - kubectl Configuration Failed
+        if: failure() && steps.configure-kubectl.outcome == 'failure'
+        uses: ./.github/actions/telegram-notify
+        with:
+          status_emoji: "❌"
+          status_text: "Ошибка настройки kubectl"
+          details: "Проверьте KUBECONFIG секрет и доступ к кластеру"
+          step_name: "kubectl Configuration"
+          image_tag: "unknown"
+          environment: ${{ env.ENVIRONMENT }}
+          domain: ${{ env.DOMAIN }}
+
       - name: Deploy to Kubernetes Stage
+        id: deploy-k8s
         run: |
           cd packages/twenty-docker/k8s
           export DOCKER_REGISTRY_USER=${{ secrets.DOCKER_REGISTRY_USER }}
@@ -102,7 +142,20 @@ jobs:
           echo "Deploying with image: $IMAGE_TAG"
           ./deploy.sh stage "$IMAGE_TAG"
 
+      - name: Notify Telegram - Kubernetes Deployment Failed
+        if: failure() && steps.deploy-k8s.outcome == 'failure'
+        uses: ./.github/actions/telegram-notify
+        with:
+          status_emoji: "❌"
+          status_text: "Ошибка развертывания в Kubernetes"
+          details: "Проверьте манифесты Kubernetes и права доступа"
+          step_name: "Kubernetes Deployment"
+          image_tag: ${{ steps.meta.outputs.tags }}
+          environment: ${{ env.ENVIRONMENT }}
+          domain: ${{ env.DOMAIN }}
+
       - name: Health Check
+        id: health-check
         run: |
           echo "Waiting for deployment to complete..."
           sleep 60
@@ -117,39 +170,26 @@ jobs:
           echo "❌ Health check failed"
           exit 1
 
-      - name: Notify Telegram
+      - name: Notify Telegram - Health Check Failed
+        if: failure() && steps.health-check.outcome == 'failure'
+        uses: ./.github/actions/telegram-notify
+        with:
+          status_emoji: "❌"
+          status_text: "Health Check не прошел"
+          details: "Приложение не отвечает на health check"
+          step_name: "Health Check"
+          image_tag: ${{ steps.meta.outputs.tags }}
+          environment: ${{ env.ENVIRONMENT }}
+          domain: ${{ env.DOMAIN }}
+
+      - name: Notify Telegram - Final Status
         if: always()
-        run: |
-          # Берем только первый тег для отображения
-          IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | cut -d' ' -f1)
-          
-          # Формируем сообщение для Telegram
-          if [ "${{ job.status }}" = "success" ]; then
-            STATUS_EMOJI="🚀"
-            STATUS_TEXT="успешно завершен"
-            STATUS_ICON="✅"
-          else
-            STATUS_EMOJI="❌"
-            STATUS_TEXT="завершился с ошибкой"
-            STATUS_ICON="❌"
-          fi
-          
-          # Создаем сообщение построчно
-          MESSAGE="${STATUS_EMOJI} *Деплой ${STATUS_TEXT}!*"
-          MESSAGE="${MESSAGE}\n\n🌍 *Окружение:* ${{ env.ENVIRONMENT }}"
-          MESSAGE="${MESSAGE}\n🌐 *Домен:* https://${{ env.DOMAIN }}"
-          MESSAGE="${MESSAGE}\n🐳 *Образ:* \`${IMAGE_TAG}\`"
-          MESSAGE="${MESSAGE}\n📝 *Коммит:* \`${{ github.sha }}\`"
-          MESSAGE="${MESSAGE}\n👤 *Автор:* ${{ github.actor }}"
-          MESSAGE="${MESSAGE}\n⏰ *Время:* $(date '+%d.%m.%Y %H:%M:%S')"
-          MESSAGE="${MESSAGE}\n\n${STATUS_ICON} Статус: ${STATUS_TEXT^}"
-          
-          # Отправляем сообщение в Telegram
-          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
-            -d text="$MESSAGE" \
-            -d parse_mode="Markdown" \
-            -d disable_web_page_preview=true
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        uses: ./.github/actions/telegram-notify
+        with:
+          status_emoji: ${{ job.status == 'success' && '🚀' || '❌' }}
+          status_text: ${{ job.status == 'success' && 'Деплой успешно завершен' || 'Деплой завершился с ошибкой' }}
+          details: ${{ job.status == 'success' && 'Все шаги выполнены успешно' || 'Проверьте логи для деталей' }}
+          step_name: "Final Status"
+          image_tag: ${{ steps.meta.outputs.tags }}
+          environment: ${{ env.ENVIRONMENT }}
+          domain: ${{ env.DOMAIN }}

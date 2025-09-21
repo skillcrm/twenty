@@ -1,0 +1,53 @@
+name: 'Send Telegram Notification'
+description: 'Send notification to Telegram about deployment status'
+inputs:
+  status_emoji:
+    description: 'Emoji for status (e.g., ❌, ✅, 🚀)'
+    required: false
+    default: '❌'
+  status_text:
+    description: 'Status text (e.g., "Ошибка", "Успешно")'
+    required: true
+  details:
+    description: 'Additional details about the error or success'
+    required: false
+    default: 'Нет дополнительной информации'
+  step_name:
+    description: 'Name of the step that failed/succeeded'
+    required: false
+    default: 'Неизвестный шаг'
+  image_tag:
+    description: 'Docker image tag'
+    required: false
+    default: 'unknown'
+  environment:
+    description: 'Environment name'
+    required: false
+    default: 'stage'
+  domain:
+    description: 'Domain name'
+    required: false
+    default: 'stage.skillcrm.ru'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Send Telegram Message
+      shell: bash
+      run: |
+        # Формируем сообщение
+        MESSAGE="${{ inputs.status_emoji }} *${{ inputs.status_text }}!*"
+        MESSAGE="${MESSAGE}\n\n🌍 *Окружение:* ${{ inputs.environment }}"
+        MESSAGE="${MESSAGE}\n🌐 *Домен:* https://${{ inputs.domain }}"
+        MESSAGE="${MESSAGE}\n🐳 *Образ:* \`${{ inputs.image_tag }}\`"
+        MESSAGE="${MESSAGE}\n📝 *Коммит:* \`${{ github.sha }}\`"
+        MESSAGE="${MESSAGE}\n👤 *Автор:* ${{ github.actor }}"
+        MESSAGE="${MESSAGE}\n⏰ *Время:* $(date '+%d.%m.%Y %H:%M:%S')"
+        MESSAGE="${MESSAGE}\n\n🔍 *Детали:* ${{ inputs.details }}"
+        
+        # Отправляем сообщение в Telegram
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+          -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+          -d text="$MESSAGE" \
+          -d parse_mode="Markdown" \
+          -d disable_web_page_preview=true
