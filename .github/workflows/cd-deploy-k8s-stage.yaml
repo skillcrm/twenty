@@ -116,28 +116,24 @@ jobs:
           
           # Формируем сообщение для Telegram
           if [ "${{ job.status }}" = "success" ]; then
-            MESSAGE="🚀 *Деплой успешно завершен!*
-
-🌍 *Окружение:* ${{ env.ENVIRONMENT }}
-🌐 *Домен:* https://${{ env.DOMAIN }}
-🐳 *Образ:* \`$IMAGE_TAG\`
-📝 *Коммит:* \`${{ github.sha }}\`
-👤 *Автор:* ${{ github.actor }}
-⏰ *Время:* $(date '+%d.%m.%Y %H:%M:%S')
-
-✅ Статус: Успешно"
+            STATUS_EMOJI="🚀"
+            STATUS_TEXT="успешно завершен"
+            STATUS_ICON="✅"
           else
-            MESSAGE="❌ *Деплой завершился с ошибкой!*
-
-🌍 *Окружение:* ${{ env.ENVIRONMENT }}
-🌐 *Домен:* https://${{ env.DOMAIN }}
-🐳 *Образ:* \`$IMAGE_TAG\`
-📝 *Коммит:* \`${{ github.sha }}\`
-👤 *Автор:* ${{ github.actor }}
-⏰ *Время:* $(date '+%d.%m.%Y %H:%M:%S')
-
-❌ Статус: Ошибка"
+            STATUS_EMOJI="❌"
+            STATUS_TEXT="завершился с ошибкой"
+            STATUS_ICON="❌"
           fi
+          
+          # Создаем сообщение построчно
+          MESSAGE="${STATUS_EMOJI} *Деплой ${STATUS_TEXT}!*"
+          MESSAGE="${MESSAGE}\n\n🌍 *Окружение:* ${{ env.ENVIRONMENT }}"
+          MESSAGE="${MESSAGE}\n🌐 *Домен:* https://${{ env.DOMAIN }}"
+          MESSAGE="${MESSAGE}\n🐳 *Образ:* \`${IMAGE_TAG}\`"
+          MESSAGE="${MESSAGE}\n📝 *Коммит:* \`${{ github.sha }}\`"
+          MESSAGE="${MESSAGE}\n👤 *Автор:* ${{ github.actor }}"
+          MESSAGE="${MESSAGE}\n⏰ *Время:* $(date '+%d.%m.%Y %H:%M:%S')"
+          MESSAGE="${MESSAGE}\n\n${STATUS_ICON} Статус: ${STATUS_TEXT^}"
           
           # Отправляем сообщение в Telegram
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
