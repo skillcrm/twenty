@@ -141,25 +141,13 @@ jobs:
           mkdir -p ~/.kube
           # Prefer static kubeconfig if provided
           if [ -n "$KUBE_SERVER" ] && [ -n "$KUBE_CA_DATA" ] && [ -n "$KUBE_BEARER_TOKEN" ]; then
-            cat > ~/.kube/config <<EOF
-apiVersion: v1
-kind: Config
-clusters:
-- cluster:
-    certificate-authority-data: ${KUBE_CA_DATA}
-    server: ${KUBE_SERVER}
-  name: yc-cluster
-contexts:
-- context:
-    cluster: yc-cluster
-    user: sa-user
-  name: yc-context
-current-context: yc-context
-users:
-- name: sa-user
-  user:
-    token: ${KUBE_BEARER_TOKEN}
-EOF
+            # Build kubeconfig via kubectl config commands (avoids heredoc YAML in workflow)
+            : > ~/.kube/config
+            kubectl config set-cluster yc-cluster --server="$KUBE_SERVER"
+            kubectl config set clusters.yc-cluster.certificate-authority-data "$KUBE_CA_DATA"
+            kubectl config set-credentials sa-user --token="$KUBE_BEARER_TOKEN"
+            kubectl config set-context yc-context --cluster=yc-cluster --user=sa-user
+            kubectl config use-context yc-context
             chmod 600 ~/.kube/config
             kubectl cluster-info
             exit 0
