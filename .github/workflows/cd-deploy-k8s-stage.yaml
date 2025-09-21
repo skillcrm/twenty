@@ -47,7 +47,6 @@ jobs:
           registry: ${{ env.DOCKER_REGISTRY }}
           username: ${{ secrets.DOCKER_REGISTRY_USER }}
           password: ${{ secrets.DOCKER_REGISTRY_TOKEN }}
-        continue-on-error: true
 
       - name: Extract metadata
         id: meta
