@@ -142,43 +142,49 @@ jobs:
           cd packages/twenty-docker/k8s
           kubectl get deployment twentycrm-server -n twentycrm -o yaml > backup-deployment-$(date +%Y%m%d_%H%M%S).yaml || true
 
-      - name: Configure kubectl
+      - name: Configure kubectl (Static Configuration)
+        id: configure-kubectl
+        env:
+          KUBE_SERVER: ${{ secrets.KUBE_SERVER }}
+          KUBE_CA_DATA: ${{ secrets.KUBE_CA_DATA }}
+          KUBE_BEARER_TOKEN: ${{ secrets.KUBE_BEARER_TOKEN }}
         run: |
-          # Configure kubectl for your Kubernetes cluster
+          set -e
+          echo "🔧 Configuring kubectl for Yandex Managed Kubernetes (Static Configuration)..."
+          
+          # Проверяем наличие всех необходимых секретов
+          if [ -z "$KUBE_SERVER" ] || [ -z "$KUBE_CA_DATA" ] || [ -z "$KUBE_BEARER_TOKEN" ]; then
+            echo "❌ Не все необходимые секреты настроены!"
+            echo "Требуются: KUBE_SERVER, KUBE_CA_DATA, KUBE_BEARER_TOKEN"
+            echo "Запустите скрипт: ./packages/twenty-docker/k8s/get-github-secrets.sh"
+            exit 1
+          fi
+          
+          # Создаем .kube директорию
           mkdir -p ~/.kube
-          # Prefer static kubeconfig if provided
-          if [ -n "${{ secrets.KUBE_SERVER }}" ] && [ -n "${{ secrets.KUBE_CA_DATA }}" ] && [ -n "${{ secrets.KUBE_BEARER_TOKEN }}" ]; then
-            # Build kubeconfig via kubectl config commands (avoids heredoc YAML in workflow)
-            : > ~/.kube/config
-            kubectl config set-cluster yc-cluster --server="${{ secrets.KUBE_SERVER }}"
-            kubectl config set clusters.yc-cluster.certificate-authority-data "${{ secrets.KUBE_CA_DATA }}"
-            kubectl config set-credentials sa-user --token="${{ secrets.KUBE_BEARER_TOKEN }}"
-            kubectl config set-context yc-context --cluster=yc-cluster --user=sa-user
-            kubectl config use-context yc-context
-            chmod 600 ~/.kube/config
-            kubectl cluster-info
-            exit 0
-          fi
-          tmpcfg="$(mktemp)"
-          printf "%s" "${{ secrets.KUBECONFIG }}" > "$tmpcfg"
-          if base64 -d "$tmpcfg" > "$tmpcfg.dec" 2>/dev/null; then
-            if head -n1 "$tmpcfg.dec" | grep -Eq '^(apiVersion:|\{)'; then
-              mv "$tmpcfg.dec" ~/.kube/config
-            else
-              rm -f "$tmpcfg.dec"
-            fi
-          fi
-          if [ ! -f ~/.kube/config ]; then
-            printf "%b" "$(cat "$tmpcfg")" > ~/.kube/config
-          fi
-          rm -f "$tmpcfg"
+          
+          echo "📋 Настройка статической конфигурации kubectl..."
+          
+          # Создаем kubeconfig используя kubectl команды
+          kubectl config set-cluster yc-cluster --server="$KUBE_SERVER"
+          kubectl config set clusters.yc-cluster.certificate-authority-data "$KUBE_CA_DATA"
+          kubectl config set-credentials sa-user --token="$KUBE_BEARER_TOKEN"
+          kubectl config set-context yc-context --cluster=yc-cluster --user=sa-user
+          kubectl config use-context yc-context
+          
           chmod 600 ~/.kube/config
-          if grep -q "exec:" -n ~/.kube/config; then
-            sed -i 's|/Users/.*/yandex-cloud/bin/yc|yc|g' ~/.kube/config || true
-            sed -i 's|/home/.*/yandex-cloud/bin/yc|yc|g' ~/.kube/config || true
-            sed -i 's/--profile[[:space:]]\+default/--profile ci-profile/g' ~/.kube/config || true
+          echo "✅ Статическая конфигурация kubectl настроена успешно"
+          
+          # Тестируем подключение
+          echo "🔍 Тестирование подключения к кластеру..."
+          if kubectl cluster-info --request-timeout=30s; then
+            echo "✅ Успешное подключение к кластеру Kubernetes"
+            echo "🌐 Сервер кластера: $KUBE_SERVER"
+          else
+            echo "❌ Не удалось подключиться к кластеру"
+            echo "Проверьте правильность секретов: KUBE_SERVER, KUBE_CA_DATA, KUBE_BEARER_TOKEN"
+            exit 1
           fi
-          kubectl cluster-info
 
       - name: Deploy to Kubernetes Production
         run: |

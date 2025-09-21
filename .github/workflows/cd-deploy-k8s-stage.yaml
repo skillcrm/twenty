@@ -106,7 +106,7 @@ jobs:
           version: 'v1.29.4'
 
       - name: Install Yandex Cloud CLI (for backup)
-        if: ${{ secrets.KUBE_SERVER == '' || secrets.KUBE_CA_DATA == '' || secrets.KUBE_BEARER_TOKEN == '' }}
+        if: ${{ !secrets.KUBE_SERVER || !secrets.KUBE_CA_DATA || !secrets.KUBE_BEARER_TOKEN }}
         run: |
           curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
           echo "$HOME/yandex-cloud/bin" >> $GITHUB_PATH
@@ -114,7 +114,7 @@ jobs:
           yc --version
 
       - name: Configure Yandex Cloud auth (backup method)
-        if: ${{ secrets.KUBE_SERVER == '' || secrets.KUBE_CA_DATA == '' || secrets.KUBE_BEARER_TOKEN == '' }}
+        if: ${{ !secrets.KUBE_SERVER || !secrets.KUBE_CA_DATA || !secrets.KUBE_BEARER_TOKEN }}
         env:
           YC_SA_KEY_JSON: ${{ secrets.YC_SA_KEY_JSON }}
           YC_CLOUD_ID: ${{ secrets.YC_CLOUD_ID }}
