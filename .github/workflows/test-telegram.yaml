@@ -1,0 +1,27 @@
+name: Test Telegram Notifications
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_message:
+        description: 'Test message to send'
+        required: false
+        default: 'Test notification from GitHub Actions'
+        type: string
+
+jobs:
+  test-telegram:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test Telegram Notification
+        uses: ./.github/actions/telegram-notify
+        with:
+          status_emoji: "🧪"
+          status_text: "Тестовое уведомление"
+          details: ${{ github.event.inputs.test_message }}
+          step_name: "Test"
+          image_tag: "test"
+          environment: "test"
+          domain: "test.skillcrm.ru"
+          bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
