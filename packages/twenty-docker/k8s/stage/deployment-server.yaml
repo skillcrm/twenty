@@ -1,0 +1,187 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skillcrm-stage-server
+  namespace: twentycrm-stage
+  labels:
+    app: skillcrm-stage
+    component: server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: skillcrm-stage
+      component: server
+  template:
+    metadata:
+      labels:
+        app: skillcrm-stage
+        component: server
+    spec:
+      containers:
+      - name: server
+        image: skillcrm-register.registry.twcstorage.ru/twenty:stage
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: skillcrm-stage-config
+              key: NODE_ENV
+        - name: NODE_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: skillcrm-stage-config
+              key: NODE_PORT
+        - name: PG_DATABASE_URL
+          value: "postgres://$(POSTGRESQL_USER):$(POSTGRESQL_PASSWORD)@$(POSTGRESQL_HOST):$(POSTGRESQL_PORT)/$(POSTGRESQL_DBNAME)"
+        - name: POSTGRESQL_HOST
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: POSTGRESQL_HOST
+        - name: POSTGRESQL_PORT
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: POSTGRESQL_PORT
+        - name: POSTGRESQL_USER
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: POSTGRESQL_USER
+        - name: POSTGRESQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: POSTGRESQL_PASSWORD
+        - name: POSTGRESQL_DBNAME
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: POSTGRESQL_DBNAME
+        - name: REDIS_URL
+          value: "redis://$(REDIS_USERNAME):$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)"
+        - name: REDIS_HOST
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: REDIS_PORT
+        - name: REDIS_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: REDIS_USERNAME
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: REDIS_PASSWORD
+        - name: SERVER_URL
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: SERVER_URL
+        - name: APP_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: APP_SECRET
+        - name: STORAGE_TYPE
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: STORAGE_TYPE
+        - name: DISABLE_DB_MIGRATIONS
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: DISABLE_DB_MIGRATIONS
+        - name: DISABLE_CRON_JOBS_REGISTRATION
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: DISABLE_CRON_JOBS_REGISTRATION
+        - name: EMAIL_FROM_ADDRESS
+          valueFrom:
+            configMapKeyRef:
+              name: skillcrm-stage-config
+              key: EMAIL_FROM_ADDRESS
+        - name: EMAIL_FROM_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: skillcrm-stage-config
+              key: EMAIL_FROM_NAME
+        - name: EMAIL_SYSTEM_ADDRESS
+          valueFrom:
+            configMapKeyRef:
+              name: skillcrm-stage-config
+              key: EMAIL_SYSTEM_ADDRESS
+        - name: EMAIL_DRIVER
+          valueFrom:
+            configMapKeyRef:
+              name: skillcrm-stage-config
+              key: EMAIL_DRIVER
+        - name: EMAIL_SMTP_HOST
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: EMAIL_SMTP_HOST
+        - name: EMAIL_SMTP_PORT
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: EMAIL_SMTP_PORT
+        - name: EMAIL_SMTP_USER
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: EMAIL_SMTP_USER
+        - name: EMAIL_SMTP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: skillcrm-stage-secrets
+              key: EMAIL_SMTP_PASSWORD
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: skillcrm-stage-config
+              key: LOG_LEVEL
+        volumeMounts:
+        - name: storage
+          mountPath: /app/packages/twenty-server/.local-storage
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 3000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+      volumes:
+      - name: storage
+        persistentVolumeClaim:
+          claimName: skillcrm-stage-storage
+      imagePullSecrets:
+      - name: skillcrm-registry-secret
