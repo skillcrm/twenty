@@ -79,9 +79,17 @@ jobs:
       - name: Configure kubectl
         run: |
           # Configure kubectl for your Kubernetes cluster
-          # This step should be customized based on your cluster setup
-          echo "KUBECONFIG=${{ secrets.KUBECONFIG }}" > kubeconfig
-          export KUBECONFIG=./kubeconfig
+          # Create kubeconfig directory
+          mkdir -p ~/.kube
+          
+          # Write kubeconfig from secret
+          echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config
+          
+          # Set proper permissions
+          chmod 600 ~/.kube/config
+          
+          # Verify connection
+          kubectl cluster-info
 
       - name: Deploy to Kubernetes Stage
         run: |
@@ -91,6 +99,7 @@ jobs:
           # Берем только первый тег из списка
           IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | cut -d' ' -f1)
           export IMAGE_TAG
+          echo "Deploying with image: $IMAGE_TAG"
           ./deploy.sh stage "$IMAGE_TAG"
 
       - name: Health Check
