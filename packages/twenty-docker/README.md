@@ -90,6 +90,57 @@ DOCKER_REGISTRY_USER=skillcrm-register
 DOCKER_REGISTRY_TOKEN=eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCIsImtpZCI6IjFrYnhacFJNQGJSI0tSbE1xS1lqIn0...
 ```
 
+#### Yandex Cloud (Kubernetes, exec-auth через yc)
+
+Если kubeconfig использует exec-аутентификацию через `yc`, добавьте секреты:
+
+```
+YC_SA_KEY_JSON   # содержимое JSON-ключа сервисного аккаунта (многострочный)
+YC_CLOUD_ID      # ID облака (b1g...)
+YC_FOLDER_ID     # ID каталога (b1g...)
+KUBECONFIG       # kubeconfig (base64 или с экранированными \n)
+```
+
+Как получить значения
+
+- Через веб‑консоль YC:
+  1) Cloud ID: раздел «Облака», откройте нужное облако → копируйте `cloud_id`.
+  2) Folder ID: в облаке откройте нужный каталог → копируйте `folder_id`.
+  3) JSON‑ключ сервисного аккаунта: IAM → Сервисные аккаунты → выберите/создайте → Ключи → Создать новый ключ → скачайте JSON и целиком вставьте содержимое в `YC_SA_KEY_JSON`.
+
+- Через CLI:
+```bash
+# Список облаков (скопируйте cloud_id)
+yc resource-manager cloud list
+
+# Список каталогов в облаке (скопируйте folder_id)
+yc resource-manager folder list --cloud-id <cloud_id>
+
+# Создать сервисный аккаунт и получить его id
+yc iam service-account create --name ci-deployer
+yc iam service-account get --name ci-deployer --format json | jq -r .id  # => <sa_id>
+
+# Создать ключ сервисного аккаунта (JSON сохранится в файл)
+yc iam key create --service-account-id <sa_id> --output sa-key.json
+
+# Откройте sa-key.json и целиком вставьте содержимое в секрет YC_SA_KEY_JSON
+```
+
+Где задать секреты:
+- GitHub → Settings → Secrets and variables → Actions → New repository secret.
+
+Альтернатива: статический kubeconfig (без yc)
+
+Если хотите не зависеть от `yc` в CI, вместо `YC_*` используйте три секрета:
+
+```
+KUBE_SERVER        # URL API сервера кластера (https://<endpoint>:443)
+KUBE_CA_DATA       # base64 содержимое CA сертификата кластера
+KUBE_BEARER_TOKEN  # токен доступа
+```
+
+Получение описано в руководстве Yandex Cloud: [Статическая конфигурация kubectl](https://yandex.cloud/ru/docs/managed-kubernetes/operations/connect/create-static-conf).
+
 
 #### База данных и Redis
 ```
@@ -167,7 +218,7 @@ sudo sh get-docker.sh
 sudo usermod -aG docker $USER
 
 # Войдите в Docker registry
-echo "your-docker-token" | sudo docker login skillcrm-register.registry.twcstorage.ru -u skillcrm-register --password-stdin
+echo "eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCIsImtpZCI6IjFrYnhacFJNQGJSI0tSbE1xS1lqIn0.eyJ1c2VyIjoiY2gwNjk3NyIsInR5cGUiOiJhcGlfa2V5IiwiYXBpX2tleV9pZCI6IjkzZGQyZjUwLTFkMzAtNDQyOC1iMDM1LTMxOTA0ZjQ2NTVhYiIsImlhdCI6MTc1ODQ2NTI2M30.RKWoVYd3WqJEPkiAFno_Uv_ig5JoqIgx4QGIfZoOCp7042vvSmzZgs0u62T2Z3PfKjGPxz2XD9ucvlAv5EwtLyrS_HCRt2qq6lfyr1WbMmeztQYJhOwZQ8dCXqa2fdC1m8XRkH0cgJ2ArP5sXONYL4I_0iDiFdHPP91_OuXOHcyIY8SoF_THGF6w08QqF5dqcWleK69UGsK5R2X8JlPBcAphbVoNRHg8K-5mHgydOFA1hSysIg7AfU4zXfxP_kX353E-KCLvChMMuzxc2TQIxu0IghJ0rr23srHNci3ertgTJaJ4-cHMcdmVOOhHy-0rhUWL-68sep9TXCXtnaNRiVpcibR4DOxC3lZ2guhIfjO3ubAxc_0egNA_Ta6gZfr970QFvM27IIl2j4vB_5_vRjhRjLv-icNIA7x3QCwiqK9dU5nqZ-ox9dwTpqdAcPzZHFtod7WkZBde6N4SeeU8jGigUEecBozIvj02TZhhcObMCxjIiVpt4hMI6wAVPeAH" | sudo docker login skillcrm-register.registry.twcstorage.ru -u skillcrm-register --password-stdin
 ```
 
 ### 3. Первый деплой
