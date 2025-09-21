@@ -1,0 +1,184 @@
+# Dependencies
+node_modules/
+**/node_modules/
+yarn.lock
+package-lock.json
+
+# Build outputs
+dist/
+build/
+**/dist/
+**/build/
+**/storybook-static/
+**/coverage/
+
+# Cache directories
+.cache/
+**/.cache/
+.nx/
+**/.nx/
+*.tsbuildinfo
+
+# Logs
+*.log
+logs/
+**/logs/
+
+# Temporary files
+tmp/
+temp/
+**/tmp/
+**/temp/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Docker and container files
+.dockerignore
+docker-compose.override.yml
+**/docker-compose.override.yml
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment files (keep .env.example)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Test coverage
+coverage/
+**/coverage/
+*.lcov
+
+# Generated files
+**/generated/
+**/__generated__/
+**/codegen/
+
+# Large binary files
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.ico
+*.woff
+*.woff2
+*.ttf
+*.eot
+
+# Documentation build outputs
+docs/build/
+**/docs/build/
+
+# Nx specific
+.nx/cache/
+.nx/workspace-data/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Jest cache
+jest-cache/
+
+# ESLint cache
+.eslintcache
+
+# Prettier cache
+.prettiercache
+
+# Vite cache
+**/vite.config.ts.timestamp-*
+
+# Storybook
+**/storybook-static/
+
+# E2E test artifacts
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Large data files
+*.csv
+*.json.bak
+*.sql
+*.dump
+
+# Backup files
+*.backup
+*.bak
+*.orig
+
+# Lock files (keep package.json)
+yarn.lock
+package-lock.json
+pnpm-lock.yaml
+
+# Git files
+.git/
+.gitignore
+
+
+# Deployment files
+render.yaml
+vercel.json
+netlify.toml
+
+# Monitoring and observability
+grafana/
+prometheus/
+**/monitoring/
+
+# Patches
+patches/
+**/patches/
+
+# Large test files
+**/test/fixtures/
+**/test/data/
+**/__tests__/fixtures/
+
+# Generated GraphQL files
+**/generated/
+**/__generated__/
+**/codegen/
+
+# IDE specific
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json
+
+# MacOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
