@@ -105,29 +105,24 @@ jobs:
         with:
           version: 'v1.29.4'
 
-      - name: Install Yandex Cloud CLI
+      - name: Install Yandex Cloud CLI (for backup)
+        if: ${{ secrets.KUBE_SERVER == '' || secrets.KUBE_CA_DATA == '' || secrets.KUBE_BEARER_TOKEN == '' }}
         run: |
           curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
           echo "$HOME/yandex-cloud/bin" >> $GITHUB_PATH
           export PATH="$HOME/yandex-cloud/bin:$PATH"
-          # Force yc to use ci-profile by default via wrapper
-          mkdir -p "$HOME/.local/bin"
-          echo '#!/usr/bin/env bash' > "$HOME/.local/bin/yc"
-          echo 'exec "$HOME/yandex-cloud/bin/yc" --profile ci-profile "$@"' >> "$HOME/.local/bin/yc"
-          chmod +x "$HOME/.local/bin/yc"
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-          export PATH="$HOME/.local/bin:$PATH"
           yc --version
 
-      - name: Configure Yandex Cloud auth
+      - name: Configure Yandex Cloud auth (backup method)
+        if: ${{ secrets.KUBE_SERVER == '' || secrets.KUBE_CA_DATA == '' || secrets.KUBE_BEARER_TOKEN == '' }}
         env:
           YC_SA_KEY_JSON: ${{ secrets.YC_SA_KEY_JSON }}
           YC_CLOUD_ID: ${{ secrets.YC_CLOUD_ID }}
           YC_FOLDER_ID: ${{ secrets.YC_FOLDER_ID }}
         run: |
           if [ -z "$YC_SA_KEY_JSON" ] || [ -z "$YC_CLOUD_ID" ] || [ -z "$YC_FOLDER_ID" ]; then
-            echo "YC credentials are not provided via secrets (YC_SA_KEY_JSON/YC_CLOUD_ID/YC_FOLDER_ID)." >&2
-            echo "If your kubeconfig uses 'exec' with yc, these are required." >&2
+            echo "❌ YC credentials not provided. Using static kubeconfig method is recommended."
+            exit 1
           else
             echo "$YC_SA_KEY_JSON" > sa-key.json
             yc config profile create ci-profile || true
@@ -135,63 +130,52 @@ jobs:
             yc config set service-account-key sa-key.json
             yc config set cloud-id "$YC_CLOUD_ID"
             yc config set folder-id "$YC_FOLDER_ID"
-            # Create default profile for kubeconfig exec compatibility
-            yc config profile create default || true
-            yc config profile activate default
-            yc config set service-account-key sa-key.json
-            yc config set cloud-id "$YC_CLOUD_ID"
-            yc config set folder-id "$YC_FOLDER_ID"
             yc config list
           fi
 
-      - name: Configure kubectl
+      - name: Configure kubectl (Static Configuration)
         id: configure-kubectl
         env:
           KUBE_SERVER: ${{ secrets.KUBE_SERVER }}
           KUBE_CA_DATA: ${{ secrets.KUBE_CA_DATA }}
           KUBE_BEARER_TOKEN: ${{ secrets.KUBE_BEARER_TOKEN }}
-          KUBECONFIG_SECRET: ${{ secrets.KUBECONFIG }}
         run: |
-          # Configure kubectl for your Kubernetes cluster
+          set -e
+          echo "🔧 Configuring kubectl for Yandex Managed Kubernetes (Static Configuration)..."
+          
+          # Проверяем наличие всех необходимых секретов
+          if [ -z "$KUBE_SERVER" ] || [ -z "$KUBE_CA_DATA" ] || [ -z "$KUBE_BEARER_TOKEN" ]; then
+            echo "❌ Не все необходимые секреты настроены!"
+            echo "Требуются: KUBE_SERVER, KUBE_CA_DATA, KUBE_BEARER_TOKEN"
+            echo "Запустите скрипт: ./packages/twenty-docker/k8s/get-github-secrets.sh"
+            exit 1
+          fi
+          
+          # Создаем .kube директорию
           mkdir -p ~/.kube
-          # Prefer static kubeconfig if provided
-          if [ -n "$KUBE_SERVER" ] && [ -n "$KUBE_CA_DATA" ] && [ -n "$KUBE_BEARER_TOKEN" ]; then
-            # Build kubeconfig via kubectl config commands (avoids heredoc YAML in workflow)
-            : > ~/.kube/config
-            kubectl config set-cluster yc-cluster --server="$KUBE_SERVER"
-            kubectl config set clusters.yc-cluster.certificate-authority-data "$KUBE_CA_DATA"
-            kubectl config set-credentials sa-user --token="$KUBE_BEARER_TOKEN"
-            kubectl config set-context yc-context --cluster=yc-cluster --user=sa-user
-            kubectl config use-context yc-context
-            chmod 600 ~/.kube/config
-            kubectl cluster-info
-            exit 0
-          fi
-          tmpcfg="$(mktemp)"
-          # Save secret raw
-          printf "%s" "$KUBECONFIG_SECRET" > "$tmpcfg"
-          # Try base64 decode first
-          if base64 -d "$tmpcfg" > "$tmpcfg.dec" 2>/dev/null; then
-            if head -n1 "$tmpcfg.dec" | grep -Eq '^(apiVersion:|\{)'; then
-              mv "$tmpcfg.dec" ~/.kube/config
-            else
-              rm -f "$tmpcfg.dec"
-            fi
-          fi
-          # If not written yet, interpret escaped newlines (\n)
-          if [ ! -f ~/.kube/config ]; then
-            printf "%b" "$(cat "$tmpcfg")" > ~/.kube/config
-          fi
-          rm -f "$tmpcfg"
+          
+          echo "📋 Настройка статической конфигурации kubectl..."
+          
+          # Создаем kubeconfig используя kubectl команды
+          kubectl config set-cluster yc-cluster --server="$KUBE_SERVER"
+          kubectl config set clusters.yc-cluster.certificate-authority-data "$KUBE_CA_DATA"
+          kubectl config set-credentials sa-user --token="$KUBE_BEARER_TOKEN"
+          kubectl config set-context yc-context --cluster=yc-cluster --user=sa-user
+          kubectl config use-context yc-context
+          
           chmod 600 ~/.kube/config
-          # Normalize YC CLI exec path if present
-          if grep -q "exec:" -n ~/.kube/config; then
-            sed -i 's|/Users/.*/yandex-cloud/bin/yc|yc|g' ~/.kube/config || true
-            sed -i 's|/home/.*/yandex-cloud/bin/yc|yc|g' ~/.kube/config || true
-            sed -i 's/--profile[[:space:]]\+default/--profile ci-profile/g' ~/.kube/config || true
+          echo "✅ Статическая конфигурация kubectl настроена успешно"
+          
+          # Тестируем подключение
+          echo "🔍 Тестирование подключения к кластеру..."
+          if kubectl cluster-info --request-timeout=30s; then
+            echo "✅ Успешное подключение к кластеру Kubernetes"
+            echo "🌐 Сервер кластера: $KUBE_SERVER"
+          else
+            echo "❌ Не удалось подключиться к кластеру"
+            echo "Проверьте правильность секретов: KUBE_SERVER, KUBE_CA_DATA, KUBE_BEARER_TOKEN"
+            exit 1
           fi
-          # Verify connection
-          kubectl cluster-info
 
       - name: Notify Telegram - kubectl Configuration Failed
         if: failure() && steps.configure-kubectl.outcome == 'failure'
