@@ -114,8 +114,30 @@ APP_SECRET_PROD=your-production-secret-key
 
 #### Уведомления (опционально)
 ```
-SLACK_WEBHOOK_URL=your-slack-webhook-url
+TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrSTUvwxyz
+TELEGRAM_CHAT_ID=-1001234567890
 ```
+
+#### Настройка Telegram уведомлений
+
+Для получения уведомлений о статусе деплоя в Telegram:
+
+1. **Создайте Telegram бота:**
+   - Найдите `@BotFather` в Telegram
+   - Отправьте команду `/newbot`
+   - Следуйте инструкциям для создания бота
+   - Получите токен бота (формат: `123456789:ABCdefGHIjklMNOpqrSTUvwxyz`)
+
+2. **Получите Chat ID:**
+   - Добавьте бота в нужный чат/канал
+   - Отправьте любое сообщение боту
+   - Перейдите по ссылке: `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates`
+   - Найдите `chat.id` в ответе (может быть отрицательным для групп)
+
+3. **Добавьте секреты в GitHub:**
+   - Перейдите в Settings → Secrets and variables → Actions
+   - Добавьте `TELEGRAM_BOT_TOKEN` с токеном бота
+   - Добавьте `TELEGRAM_CHAT_ID` с ID чата
 
 ### 2. Настройка серверов
 
