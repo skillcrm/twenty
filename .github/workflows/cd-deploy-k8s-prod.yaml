@@ -121,6 +121,14 @@ jobs:
             yc config set service-account-key sa-key.json
             yc config set cloud-id "$YC_CLOUD_ID"
             yc config set folder-id "$YC_FOLDER_ID"
+            # Ensure 'default' profile exists (some kubeconfigs expect it)
+            yc config profile create default || true
+            yc config profile activate default
+            yc config set service-account-key sa-key.json
+            yc config set cloud-id "$YC_CLOUD_ID"
+            yc config set folder-id "$YC_FOLDER_ID"
+            # Switch back to ci-profile
+            yc config profile activate ci-profile
             yc config list
             echo "YC_PROFILE=ci-profile" >> $GITHUB_ENV
           fi
@@ -176,6 +184,7 @@ EOF
           if grep -q "exec:" -n ~/.kube/config; then
             sed -i 's|/Users/.*/yandex-cloud/bin/yc|yc|g' ~/.kube/config || true
             sed -i 's|/home/.*/yandex-cloud/bin/yc|yc|g' ~/.kube/config || true
+            sed -i 's/--profile[[:space:]]\+default/--profile ci-profile/g' ~/.kube/config || true
           fi
           kubectl cluster-info
 
