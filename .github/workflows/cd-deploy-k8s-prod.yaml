@@ -105,10 +105,8 @@ jobs:
           export PATH="$HOME/yandex-cloud/bin:$PATH"
           # Force yc to use ci-profile by default via wrapper
           mkdir -p "$HOME/.local/bin"
-          cat > "$HOME/.local/bin/yc" <<'EOF'
-#!/usr/bin/env bash
-exec "$HOME/yandex-cloud/bin/yc" --profile ci-profile "$@"
-EOF
+          echo '#!/usr/bin/env bash' > "$HOME/.local/bin/yc"
+          echo 'exec "$HOME/yandex-cloud/bin/yc" --profile ci-profile "$@"' >> "$HOME/.local/bin/yc"
           chmod +x "$HOME/.local/bin/yc"
           echo "$HOME/.local/bin" >> $GITHUB_PATH
           export PATH="$HOME/.local/bin:$PATH"
