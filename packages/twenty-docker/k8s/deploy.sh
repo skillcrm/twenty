@@ -104,7 +104,7 @@ EOF
 update_image() {
     print_status "Updating image to $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG..."
     
-    local deployment_name="twentycrm${ENVIRONMENT:+-$ENVIRONMENT}-server"
+    local deployment_name="skillcrm${ENVIRONMENT:+-$ENVIRONMENT}-server"
     local namespace="twentycrm${ENVIRONMENT:+-$ENVIRONMENT}"
     
     kubectl set image deployment/$deployment_name \
@@ -147,7 +147,7 @@ apply_manifests() {
 wait_for_rollout() {
     print_status "Waiting for rollout to complete..."
     
-    local deployment_name="twentycrm${ENVIRONMENT:+-$ENVIRONMENT}-server"
+    local deployment_name="skillcrm${ENVIRONMENT:+-$ENVIRONMENT}-server"
     local namespace="twentycrm${ENVIRONMENT:+-$ENVIRONMENT}"
     
     kubectl rollout status deployment/$deployment_name -n $namespace --timeout=300s
@@ -159,7 +159,7 @@ wait_for_rollout() {
 check_health() {
     print_status "Checking application health..."
     
-    local service_name="twentycrm${ENVIRONMENT:+-$ENVIRONMENT}-server"
+    local service_name="skillcrm${ENVIRONMENT:+-$ENVIRONMENT}-server"
     local namespace="twentycrm${ENVIRONMENT:+-$ENVIRONMENT}"
     local domain=""
     
@@ -219,7 +219,7 @@ show_status() {
 rollback_deployment() {
     print_warning "Rolling back deployment..."
     
-    local deployment_name="twentycrm${ENVIRONMENT:+-$ENVIRONMENT}-server"
+    local deployment_name="skillcrm${ENVIRONMENT:+-$ENVIRONMENT}-server"
     local namespace="twentycrm${ENVIRONMENT:+-$ENVIRONMENT}"
     
     kubectl rollout undo deployment/$deployment_name -n $namespace
@@ -283,7 +283,7 @@ case "${1:-}" in
     "logs")
         ENVIRONMENT=${2:-prod}
         local namespace="twentycrm${ENVIRONMENT:+-$ENVIRONMENT}"
-        kubectl logs -f deployment/twentycrm${ENVIRONMENT:+-$ENVIRONMENT}-server -n $namespace
+        kubectl logs -f deployment/skillcrm${ENVIRONMENT:+-$ENVIRONMENT}-server -n $namespace
         ;;
     *)
         echo "Usage: $0 {stage|prod} [image-tag]"
