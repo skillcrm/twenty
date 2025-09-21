@@ -88,8 +88,10 @@ jobs:
           cd packages/twenty-docker/k8s
           export DOCKER_REGISTRY_USER=${{ secrets.DOCKER_REGISTRY_USER }}
           export DOCKER_REGISTRY_TOKEN=${{ secrets.DOCKER_REGISTRY_TOKEN }}
-          export IMAGE_TAG=${{ steps.meta.outputs.tags }}
-          ./deploy.sh stage ${{ steps.meta.outputs.tags }}
+          # Берем только первый тег из списка
+          IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | cut -d' ' -f1)
+          export IMAGE_TAG
+          ./deploy.sh stage "$IMAGE_TAG"
 
       - name: Health Check
         run: |
@@ -120,3 +122,44 @@ jobs:
             Author: ${{ github.actor }}
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Notify Telegram
+        if: always()
+        run: |
+          # Берем только первый тег для отображения
+          IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | cut -d' ' -f1)
+          
+          # Формируем сообщение для Telegram
+          if [ "${{ job.status }}" = "success" ]; then
+            MESSAGE="🚀 *Деплой успешно завершен!*
+            
+🌍 *Окружение:* ${{ env.ENVIRONMENT }}
+🌐 *Домен:* https://${{ env.DOMAIN }}
+🐳 *Образ:* \`$IMAGE_TAG\`
+📝 *Коммит:* \`${{ github.sha }}\`
+👤 *Автор:* ${{ github.actor }}
+⏰ *Время:* $(date '+%d.%m.%Y %H:%M:%S')
+            
+✅ Статус: Успешно"
+          else
+            MESSAGE="❌ *Деплой завершился с ошибкой!*
+            
+🌍 *Окружение:* ${{ env.ENVIRONMENT }}
+🌐 *Домен:* https://${{ env.DOMAIN }}
+🐳 *Образ:* \`$IMAGE_TAG\`
+📝 *Коммит:* \`${{ github.sha }}\`
+👤 *Автор:* ${{ github.actor }}
+⏰ *Время:* $(date '+%d.%m.%Y %H:%M:%S')
+            
+❌ Статус: Ошибка"
+          fi
+          
+          # Отправляем сообщение в Telegram
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d text="$MESSAGE" \
+            -d parse_mode="Markdown" \
+            -d disable_web_page_preview=true
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
